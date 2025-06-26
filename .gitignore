@@ -1,0 +1,25 @@
+# Environnement virtuel
+env/
+venv/
+
+# Fichiers compilés Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Cache Jupyter/Streamlit
+.ipynb_checkpoints/
+.streamlit/
+
+# Fichiers de log/temp
+*.log
+*.tmp
+
+# VS Code config
+.vscode/
+
+# Mac/Linux
+.DS_Store
+
+# Windows
+Thumbs.db
