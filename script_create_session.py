@@ -1,3 +1,6 @@
+# Ce script ouvre un navigateur non-headless, te laisse te connecter manuellement à ton compte Carrefour,
+# puis sauvegarde les cookies et la session dans un fichier state.json.
+
 from playwright.sync_api import sync_playwright
 
 with sync_playwright() as p:

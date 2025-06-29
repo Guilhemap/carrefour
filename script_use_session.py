@@ -1,5 +1,8 @@
 # "https://www.carrefour.fr/api/user/secured/loyalty/orders/receipts?loyaltyCardNumber=9135720000750920831&loyaltyCardType=LOYALTY"
 
+
+# Ce second script réutilise la session sauvegardée pour accéder directement à la page sécurisée, ou pour faire des requêtes authentifiées à l’API.
+
 from playwright.sync_api import sync_playwright
 
 with sync_playwright() as p:
