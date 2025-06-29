@@ -2,6 +2,12 @@
 env/
 venv/
 
+# Ignorer le dossier factures
+donnees/factures/
+
+# Ignorer le fichier cookies.json
+donnees/cookies.json
+
 # Fichiers compilés Python
 __pycache__/
 *.py[cod]
