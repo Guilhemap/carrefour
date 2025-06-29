@@ -2,12 +2,17 @@
 # de récupérer les cookies de session, puis d'utiliser Playwright pour naviguer sur le site
 # et télécharger des factures au format PDF.
 
-
 import asyncio
-import os
 import json
+import os
+from pathlib import Path
 from pydoll.browser import Chrome
 from playwright.async_api import async_playwright
+
+# 📁 Dossier du script
+BASE_DIR = Path(__file__).resolve().parent
+COOKIES_PATH = BASE_DIR / "cookies.json"
+FACTURES_DIR = BASE_DIR / "factures"
 
 async def bypass_cloudflare_and_get_cookies():
     async with Chrome() as browser:
@@ -19,18 +24,18 @@ async def bypass_cloudflare_and_get_cookies():
         input("✅ Appuie sur Entrée une fois connecté...")
 
         cookies = await tab.get_cookies()
-        with open("cookies.json", "w") as f:
+        with open(COOKIES_PATH, "w") as f:
             json.dump(cookies, f)
         print("✅ Cookies sauvegardés. Fermeture de Pydoll...")
 
 async def run_playwright_with_cookies_and_scrape():
-    os.makedirs("factures", exist_ok=True)
+    FACTURES_DIR.mkdir(exist_ok=True)
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)
         context = await browser.new_context()
 
-        with open("cookies.json", "r") as f:
+        with open(COOKIES_PATH, "r") as f:
             cookies = json.load(f)
         await context.add_cookies(cookies)
 
@@ -57,15 +62,14 @@ async def run_playwright_with_cookies_and_scrape():
             pdf_url = new_page.url
             print(f"🔗 URL de la facture : {pdf_url}")
 
-            # Effectue une requête directe via context.request
             try:
                 response = await context.request.get(pdf_url)
                 if response.ok:
                     content = await response.body()
-                    filename = f"facture_{i+1}.pdf"
-                    with open(os.path.join("factures", filename), "wb") as f:
+                    filename = FACTURES_DIR / f"facture_{i+1}.pdf"
+                    with open(filename, "wb") as f:
                         f.write(content)
-                    print(f"✅ Téléchargé : factures/{filename}")
+                    print(f"✅ Téléchargé : {filename.relative_to(BASE_DIR)}")
                 else:
                     print(f"❌ Erreur HTTP {response.status} sur {pdf_url}")
             except Exception as e:
