@@ -3,7 +3,7 @@ env/
 venv/
 
 # Ignorer le dossier factures
-donnees/factures/
+donnees/factures_raw
 
 # Ignorer le fichier cookies.json
 donnees/cookies.json

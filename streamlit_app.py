@@ -1,4 +1,6 @@
 # .\env\Scripts\Activate.ps1
+# streamlit run c:/Users/guilhem/Desktop/streamlit_dashboard_starter/streamlit_app.py
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -9,7 +11,7 @@ st.set_page_config(page_title="Dashboard Starter", layout="centered")
 st.title("📊 Mon Premier Dashboard Streamlit")
 
 # Chargement des données
-df = pd.read_csv("donnees.csv")
+df = pd.read_csv("donnees/donnees.csv")
 
 # Widgets d'interaction
 st.sidebar.header("Filtres")
@@ -31,4 +33,4 @@ st.line_chart(filtered_df.set_index("date")["valeur"])
 
 
 # git add .
-# git commit -m "first commit"
+# git commit -m "message"

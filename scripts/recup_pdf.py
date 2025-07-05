@@ -10,9 +10,8 @@ from pydoll.browser import Chrome
 from playwright.async_api import async_playwright
 
 # 📁 Dossier du script
-BASE_DIR = Path(__file__).resolve().parent
-COOKIES_PATH = BASE_DIR / "cookies.json"
-FACTURES_DIR = BASE_DIR / "factures"
+COOKIES_PATH = "donnees/cookies.json"
+FACTURES_DIR = "donnees/factures_raw"
 
 async def bypass_cloudflare_and_get_cookies():
     async with Chrome() as browser:
@@ -69,7 +68,7 @@ async def run_playwright_with_cookies_and_scrape():
                     filename = FACTURES_DIR / f"facture_{i+1}.pdf"
                     with open(filename, "wb") as f:
                         f.write(content)
-                    print(f"✅ Téléchargé : {filename.relative_to(BASE_DIR)}")
+                    print(f"✅ Téléchargé : {filename}")
                 else:
                     print(f"❌ Erreur HTTP {response.status} sur {pdf_url}")
             except Exception as e:
