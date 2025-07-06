@@ -58,11 +58,18 @@ def parse_ticket_text(text):
                 })
             i += 1
 
+
+
+    last_line = lines[-1] if lines else ""
+    idticket_match = re.match(r"\d{2}\.\d{2}\.\d{2} \d{2}:\d{2} (.+)", last_line)
+    idticket = idticket_match.group(1).strip() if idticket_match else None
+
     df = pd.DataFrame(produits)
     df["magasin"] = magasin
     df["date"] = date
     df["heure"] = heure
     df["total"] = float(total.replace(",", ".")) if total else None
+    df["id_ticket"] = idticket
 
     return df
 
@@ -90,3 +97,8 @@ print(df_final)
 # Optionnel : sauvegarde dans un CSV
 os.makedirs("donnees/factures_processed", exist_ok=True)
 df_final.to_csv("donnees/factures_processed/factures_combined.csv", index=False)
+
+
+# #debug
+# text = extract_text_from_pdf("donnees/factures_raw/facture_2.pdf")
+# print(text)
