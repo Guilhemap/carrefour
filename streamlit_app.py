@@ -8,10 +8,12 @@
 import altair as alt
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 import locale
 locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
 jours_ordre = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 
+st.set_page_config(page_title="Courses Reviews Dashboard", layout="wide")
 
 # --- Chargement des données ---
 @st.cache_data
@@ -25,7 +27,9 @@ def load_data():
 
 df = load_data()
 
+
 st.title("📊 Mes courses")
+
 
 # --- Filtres ---
 st.sidebar.header("🔍 Filtres")
@@ -62,6 +66,9 @@ if produit_sel:
     df_filtré = df_filtré[df_filtré["produit"].isin(produit_sel)]
 
 
+
+
+
 #onglets
 tab1, tab2 = st.tabs(["📊 Statistiques générales", "🛒 Produits"])
 
@@ -72,35 +79,71 @@ with tab1:
     st.dataframe(df_filtré)
 
     st.markdown("---")
-    # --- Statistiques générales ---
+    # --- Statistiques ---
     total_depense = df_filtré["montant"].sum()
     nb_tickets = df_filtré["id_ticket"].nunique()
     nb_produits = df_filtré["qte"].sum()
-    moy_produits_par_ticket = nb_produits / nb_tickets if nb_tickets > 0 else 0
     moy_depense_par_ticket = df_filtré.groupby("id_ticket")["montant"].sum().mean()
 
-    col1, col2, col3 = st.columns(3)
+    # Délai moyen entre courses
+    tickets_uniques = df_filtré.drop_duplicates("id_ticket")
+    dates_uniques = tickets_uniques.sort_values("date")["date"]
+    delta = dates_uniques.diff().dropna()
+    frequence_moyenne = delta.mean().days if not delta.empty else 0
+
+    # affichage des metrics
+    col1, col2 = st.columns(2)
     col1.metric("Total dépensé", f"{total_depense:.2f} €")
     col2.metric("Nombre de courses", nb_tickets)
-    col3.metric("Nombre de produits", int(nb_produits))
 
-    col4, col5 = st.columns(2)
-    col4.metric("Produits / ticket", f"{moy_produits_par_ticket:.2f}")
-    col5.metric("Dépense / ticket", f"{moy_depense_par_ticket:.2f} €")
+    col3, col4 = st.columns(2)
+    col3.metric("Dépense / course ", f"{moy_depense_par_ticket:.2f} €")
+    col4.metric("Délai moyen entre 2 courses", f"{frequence_moyenne} jours")
 
     st.markdown("---")
 
-    # --- Dépenses dans le temps ---
-    st.subheader("📆 Dépenses dans le temps")
+    # ************** Dépenses dans le temps **************
+    st.subheader("📆 Historique des courses")
+
+
+
+
+
 
     # --- Historique des courses et montants---
-    st.write("📊 Historique des courses et montants")
-    dep_jour = df_filtré.groupby("date")["montant"].sum()
-    st.line_chart(dep_jour)
+
+    from plotly_calplot import calplot
+
+
+    # Data : 1 ligne par ticket, regroupée par date
+    tickets = df_filtré.drop_duplicates("id_ticket").copy()
+    tickets["count"] = 1
+
+    # Création du calendrier interactif
+    fig = calplot(
+        tickets,
+        x="date",
+        y="count",
+        gap=0.5,
+        colorscale="Blues",
+        month_lines=True,
+        years_title=True,
+        dark_theme=False  # ou True si sotie en dark mode
+    )
+
+    fig.update_layout(height=450)
+    st.plotly_chart(fig, use_container_width=True)
+
+
+
+
+
 
     st.markdown("---")
 
-    # --- Jour de la semaine ---
+    # --- Selon le jour de la semaine ---
+    
+    #traitement données
     df_filtré["jour"] = df_filtré["date"].dt.day_name(locale='fr_FR').str.lower()
 
     tickets_uniques = df_filtré.drop_duplicates("id_ticket")
@@ -111,22 +154,10 @@ with tab1:
         .reset_index()
     )
 
-    #total courses par jour
+    # Préparer les données
     jours_tickets.columns = ["jour", "nombre"]
     jours_tickets["jour"] = jours_tickets["jour"].str.capitalize()
 
-    chart = alt.Chart(jours_tickets).mark_bar().encode(
-        x=alt.X("jour:N", sort=[j.capitalize() for j in jours_ordre]),
-        y=alt.Y("nombre:Q"),
-        tooltip=["jour", "nombre"]
-    ).properties(
-        title="📊 Total courses par jour"
-    )
-    st.altair_chart(chart, use_container_width=True)
-
-
-
-    #moyenne dépense par jour
     dep_jour_semaine = (
         tickets_uniques.groupby("jour")["total"]
         .mean()
@@ -136,22 +167,21 @@ with tab1:
     dep_jour_semaine.columns = ["jour", "moyenne_depense"]
     dep_jour_semaine["jour"] = dep_jour_semaine["jour"].str.capitalize()
 
-    chart = alt.Chart(dep_jour_semaine).mark_bar().encode(
+    df_graph = jours_tickets.merge(dep_jour_semaine, on="jour")
+
+    # Graphique
+    chart_total_courses = alt.Chart(df_graph).mark_bar().encode(
         x=alt.X("jour:N", sort=[j.capitalize() for j in jours_ordre]),
-        y=alt.Y("moyenne_depense:Q"),
-        tooltip=["jour", "moyenne_depense"]
+        y=alt.Y("nombre:Q"),
+        color=alt.Color("moyenne_depense:Q", scale=alt.Scale(scheme="blues"), legend=alt.Legend(title="Dépense moyenne")),
+        tooltip=["jour", "nombre", "moyenne_depense"]
     ).properties(
-        title="📊 Dépense moyenne par jour"
+        title="📊 Jours de course"
     )
 
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart_total_courses, use_container_width=True)
 
 
-    # --- Fréquence des visites ---
-    dates_uniques = tickets_uniques.sort_values("date")["date"]
-    delta = dates_uniques.diff().dropna()
-    frequence_moyenne = delta.mean().days if not delta.empty else 0
-    st.write(f"🕒 En moyenne, tu fais des courses tous les **{frequence_moyenne} jours**.")
 
     # --- Top produits achetés ---
     st.subheader("🛒 Top produits achetés")
@@ -190,8 +220,6 @@ with tab2:
 #--------------
 
     
-    import plotly.express as px
-
     df_prod = df_filtré[df_filtré["produit"] == produit_cible]
 
     if df_prod.empty:
