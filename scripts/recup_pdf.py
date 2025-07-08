@@ -10,8 +10,8 @@ from pydoll.browser import Chrome
 from playwright.async_api import async_playwright
 
 # 📁 Dossier du script
-COOKIES_PATH = "donnees/cookies.json"
-FACTURES_DIR = "donnees/factures_raw"
+COOKIES_PATH = Path("donnees/cookies.json")
+FACTURES_DIR = Path("donnees/factures_raw")
 
 async def bypass_cloudflare_and_get_cookies():
     async with Chrome() as browser:
