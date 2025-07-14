@@ -18,11 +18,18 @@ st.set_page_config(page_title="Courses Reviews Dashboard", layout="wide")
 # --- Chargement des données ---
 @st.cache_data
 def load_data():
-    df = pd.read_csv("donnees/factures_processed/factures_combined.csv")
+    df = pd.read_csv("donnees/factures_processed/factures_enrichies.csv")
     df["date"] = pd.to_datetime(df["date"], format="%d/%m/%Y")  # conversion date
     df["qte"] = pd.to_numeric(df["qte"], errors="coerce").fillna(1)
     df["montant"] = pd.to_numeric(df["montant"], errors="coerce")
     df["prix_unitaire"] = df["montant"] / df["qte"]
+
+    # 🔁 Remplacement des id_ticket par ticket_1, ticket_2, ...
+    if "id_ticket" in df.columns:
+        unique_ids = df["id_ticket"].dropna().unique()
+        id_map = {old_id: f"ticket_{i+1}" for i, old_id in enumerate(unique_ids)}
+        df["id_ticket"] = df["id_ticket"].map(id_map)
+
     return df
 
 df = load_data()
@@ -185,11 +192,11 @@ with tab1:
 
     # --- Top produits achetés ---
     st.subheader("🛒 Top produits achetés")
-    top_produits_nb = df_filtré.groupby("produit")["qte"].sum().sort_values(ascending=False).head(10)
+    top_produits_nb = df_filtré.groupby("categorie")["qte"].sum().sort_values(ascending=False).head(10)
     st.write("Par nombre d'achats")
     st.bar_chart(top_produits_nb)
 
-    top_produits_dep = df_filtré.groupby("produit")["montant"].sum().sort_values(ascending=False).head(10)
+    top_produits_dep = df_filtré.groupby("categorie")["montant"].sum().sort_values(ascending=False).head(10)
     st.write("Par montant dépensé")
     st.bar_chart(top_produits_dep)
 
@@ -250,3 +257,51 @@ with tab2:
         fig.update_layout(height=300)
 
         st.plotly_chart(fig, use_container_width=True)
+
+
+
+
+    # --- DEBUG : Produits différents ---
+    st.subheader("🧪 Debug : Produits distincts")
+
+    # Compter les occurrences, trier par ordre alphabétique
+    produits_counts = (
+        df_filtré["produit"]
+        .dropna()
+        .value_counts()
+        .rename_axis("produit")
+        .reset_index(name="occurrences")
+        .sort_values("produit")  # tri alphabétique
+    )
+
+    # Affichage du tableau
+    st.write("Produits différents (ordre alphabétique avec nombre d'occurrences) :")
+    st.dataframe(produits_counts)
+
+    # Nombre total de produits uniques
+    st.write(f"Nombre total de produits différents : **{produits_counts.shape[0]}**")
+
+
+
+    # --- Export CSV des produits distincts ---
+    st.subheader("📥 Export CSV des produits distincts")
+
+    # Liste unique, triée
+    produits_uniques = (
+        df_filtré["produit"]
+        .dropna()
+        .drop_duplicates()
+        .sort_values()
+        .reset_index(drop=True)
+    )
+
+    # Conversion en CSV
+    csv_data = produits_uniques.to_frame(name="produit").to_csv(index=False).encode("utf-8")
+
+    # Bouton de téléchargement
+    st.download_button(
+        label="📄 Télécharger la liste des produits",
+        data=csv_data,
+        file_name="produits_distincts.csv",
+        mime="text/csv"
+    )
