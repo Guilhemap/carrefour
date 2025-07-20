@@ -5,8 +5,14 @@ venv/
 #variables d'environnement
 .env
 
-# Ignorer le dossier factures
+# Ignorer le dossier scripts
+scripts
+
+# Ignorer le dossier donnees/factures/raw
 donnees/factures_raw
+
+# Ignorer le fichier donnees/factures/factures_processed/factures_combined.csv
+donnees/factures_processed/factures_combined.csv
 
 # Ignorer le fichier cookies.json
 donnees/cookies.json
