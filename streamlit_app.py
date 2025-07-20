@@ -257,7 +257,7 @@ with tab1:
     st.altair_chart(chart_total_courses, use_container_width=True)
 
 
-
+    st.markdown("---")
     # --- Top catégories achetées ---
     st.subheader("🛒 Top produits achetés")
 
