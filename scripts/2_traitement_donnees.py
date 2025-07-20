@@ -1,3 +1,7 @@
+#ce script crée une colonne "catégorie" contenant plusieurs produits, et une colonne "groupe" contenant plusieurs catégories
+#il crée une colonne BIO
+#réordonne les colonnes
+
 import openai
 import pandas as pd
 from dotenv import load_dotenv

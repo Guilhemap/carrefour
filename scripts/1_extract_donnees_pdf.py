@@ -1,3 +1,5 @@
+#ce script récupère les données issues des pdf de tickets de caisse, et les agglomère dans un seul fichier
+
 import os
 import pdfplumber
 import re

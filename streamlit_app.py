@@ -1,5 +1,4 @@
 # .\env\Scripts\Activate.ps1
-
 #streamlit run c:/Users/guilhem/Desktop/streamlit_dashboard_starter/streamlit_app.py
 
 import altair as alt

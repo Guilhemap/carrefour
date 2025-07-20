@@ -1,3 +1,5 @@
+#ce script récupère les tickets de caisse depuis carrefour.fr
+
 import asyncio
 import json
 import os
