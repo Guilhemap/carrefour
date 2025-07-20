@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 from babel.dates import format_datetime
 
 
-locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
+# locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
 jours_ordre = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 
 st.set_page_config(page_title="Courses Reviews Dashboard", layout="wide")
