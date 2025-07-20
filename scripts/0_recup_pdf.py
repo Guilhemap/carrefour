@@ -1,7 +1,3 @@
-# Ce script permet de contourner la protection Cloudflare d'un site web,
-# de récupérer les cookies de session, puis d'utiliser Playwright pour naviguer sur le site
-# et télécharger des factures au format PDF.
-
 import asyncio
 import json
 import os
