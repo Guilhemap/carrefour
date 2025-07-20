@@ -1,8 +1,5 @@
 # .\env\Scripts\Activate.ps1
 
-# git add .
-# git commit -m "message"
-
 #streamlit run c:/Users/guilhem/Desktop/streamlit_dashboard_starter/streamlit_app.py
 
 import altair as alt
@@ -10,6 +7,12 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import locale
+import matplotlib.pyplot as plt
+import numpy as np
+from plotly_calplot import calplot
+import plotly.graph_objects as go
+
+
 locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
 jours_ordre = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 
@@ -59,9 +62,6 @@ date_range = st.sidebar.slider(
 start_dt = pd.to_datetime(date_range[0])
 end_dt = pd.to_datetime(date_range[1])
 
-# Produits
-produits = df["produit"].dropna().unique()
-produit_sel = st.sidebar.multiselect("Produit", produits)
 
 # --- Application des filtres ---
 df_filtré = df[
@@ -69,21 +69,19 @@ df_filtré = df[
     df["date"].between(start_dt, end_dt)
 ]
 
-if produit_sel:
-    df_filtré = df_filtré[df_filtré["produit"].isin(produit_sel)]
-
-
-
 
 
 #onglets
-tab1, tab2 = st.tabs(["📊 Statistiques générales", "🛒 Produits"])
+tab1, tab2, tab3 = st.tabs(["📊 Statistiques générales", "🛒 Produits", "📈 Inflation"])
 
 # --- Statistiques générales ---
 with tab1:
     # --- Données filtrées ---
     st.subheader("📄 Derniers achats")
-    st.dataframe(df_filtré)
+    # st.dataframe(df_filtré)
+    df_affichage = df_filtré.copy()
+    df_affichage["date"] = df_affichage["date"].dt.strftime("%Y-%m-%d")
+    st.dataframe(df_affichage.reset_index(drop=True))
 
     st.markdown("---")
     # --- Statistiques ---
@@ -99,28 +97,97 @@ with tab1:
     frequence_moyenne = delta.mean().days if not delta.empty else 0
 
     # affichage des metrics
-    col1, col2 = st.columns(2)
-    col1.metric("Total dépensé", f"{total_depense:.2f} €")
-    col2.metric("Nombre de courses", nb_tickets)
+    # Affichage des statistiques + graphique horloge
+    col1, col2, col3 = st.columns([1, 1, 0.8])  # largeur personnalisée
 
-    col3, col4 = st.columns(2)
-    col3.metric("Dépense / course ", f"{moy_depense_par_ticket:.2f} €")
-    col4.metric("Délai moyen entre 2 courses", f"{frequence_moyenne} jours")
+    with col1:
+        st.metric("Total dépensé", f"{total_depense:.2f} €")
+        st.metric("Dépense / course ", f"{moy_depense_par_ticket:.2f} €")
+
+    with col2:
+        st.metric("Nombre de courses", nb_tickets)
+        st.metric("Délai moyen entre 2 courses", f"{frequence_moyenne} jours")
+
+    with col3:
+        
+        tickets = df_filtré.drop_duplicates("id_ticket").copy()
+        tickets["heure"] = pd.to_datetime(tickets["heure"], format="%Hh%M", errors="coerce").dt.hour
+
+        heure_counts = tickets["heure"].value_counts().sort_index()
+        heures = np.arange(24)
+        valeurs = np.array([heure_counts.get(h, 0) for h in heures])
+
+        theta = np.linspace(0.0, 2 * np.pi, 24, endpoint=False)
+        width = 2 * np.pi / 24
+
+        offsetval = 0.5  # rayon intérieur
+        hauteur_visuelle = 1.0  # hauteur de l'anneau visible
+
+        # 🔵 Normalisation proportionnelle dans l’espace alloué
+        valeurs_scaled = (valeurs / valeurs.max()) * hauteur_visuelle if valeurs.max() > 0 else valeurs
+
+        fig, ax = plt.subplots(figsize=(4, 4), subplot_kw=dict(polar=True))
+
+        # --- Halo fond bleu clair ---
+        ax.bar(
+            theta,
+            [hauteur_visuelle]*24,
+            width=width,
+            bottom=offsetval,
+            color="#E6F2FF",
+            edgecolor="white",
+            linewidth=1,
+            zorder=1
+        )
+
+        # --- Barres principales proportionnelles ---
+        ax.bar(
+            theta,
+            valeurs_scaled,
+            width=width,
+            bottom=offsetval,
+            color="royalblue",
+            edgecolor="white",
+            linewidth=1,
+            zorder=2
+        )
+
+        # --- Esthétique ---
+        ax.set_theta_direction(-1)
+        ax.set_theta_offset(np.pi / 2)
+        ax.set_xticks(np.linspace(0, 2 * np.pi, 8, endpoint=False))  # 24 / 3 = 8 segments
+        ax.set_xticklabels([f"{h:2}h" for h in range(0, 24, 3)], fontsize=10)
+        ax.set_yticks([])
+        ax.grid(False)
+        ax.spines['polar'].set_visible(False)
+        ax.set_ylim(0, offsetval + hauteur_visuelle * 1.05)
+
+        # --- Cercle central ---
+        circle = plt.Circle((0, 0), offsetval, transform=ax.transData._b, color="white", zorder=3)
+        ax.add_artist(circle)
+        ax.text(
+            0, 0, "Heure\ndes courses",
+            ha='center', va='center',
+            fontsize=10, color="black"
+        )
+        st.pyplot(fig)
 
     st.markdown("---")
+
+
+
+
+
+
+
+
 
     # ************** Dépenses dans le temps **************
     st.subheader("📆 Historique des courses")
 
 
 
-
-
-
     # --- Historique des courses et montants---
-
-    from plotly_calplot import calplot
-
 
     # Data : 1 ligne par ticket, regroupée par date
     tickets = df_filtré.drop_duplicates("id_ticket").copy()
@@ -180,7 +247,7 @@ with tab1:
     chart_total_courses = alt.Chart(df_graph).mark_bar().encode(
         x=alt.X("jour:N", sort=[j.capitalize() for j in jours_ordre]),
         y=alt.Y("nombre:Q"),
-        color=alt.Color("moyenne_depense:Q", scale=alt.Scale(scheme="blues"), legend=alt.Legend(title="Dépense moyenne")),
+        color=alt.Color("moyenne_depense:Q", scale=alt.Scale(scheme="blues"), legend=alt.Legend(title="Dépense moyenne(€)")),
         tooltip=["jour", "nombre", "moyenne_depense"]
     ).properties(
         title="📊 Jours de course"
@@ -190,49 +257,59 @@ with tab1:
 
 
 
-    # --- Top produits achetés ---
+    # --- Top catégories achetées ---
     st.subheader("🛒 Top produits achetés")
-    top_produits_nb = df_filtré.groupby("categorie")["qte"].sum().sort_values(ascending=False).head(10)
-    st.write("Par nombre d'achats")
-    st.bar_chart(top_produits_nb)
 
-    top_produits_dep = df_filtré.groupby("categorie")["montant"].sum().sort_values(ascending=False).head(10)
-    st.write("Par montant dépensé")
-    st.bar_chart(top_produits_dep)
-
-    # --- Variations de prix ---
-    st.subheader("📉 Produits avec plus forte hausse de prix")
-
-    variation_prix = df_filtré.groupby("produit")["prix_unitaire"].agg(['min', 'max'])
-    variation_prix["variation_%"] = ((variation_prix["max"] - variation_prix["min"]) / variation_prix["min"]) * 100
-    variation_prix = variation_prix.sort_values("variation_%", ascending=False)
-    top_variations = variation_prix[variation_prix["variation_%"] > 0].head(10)
-
-    st.dataframe(
-        top_variations.style.format({
-            "min": "{:.2f} €", "max": "{:.2f} €", "variation_%": "{:.1f} %"
-        })
+    # Agrégation par catégorie
+    top_categories = (
+        df_filtré.groupby("categorie", as_index=False)
+        .agg({"qte": "sum", "montant": "sum"})
+        .sort_values("qte", ascending=False)
+        .head(60)
     )
 
-
-# --- Onglet Produits ---
-with tab2:
-    st.header("📦 Produits")
-
+    # Altair chart combiné
+    chart_top_categories = alt.Chart(top_categories).mark_bar().encode(
+        x=alt.X("qte:Q", title="Quantité achetée"),
+        y=alt.Y("categorie:N", sort="-x", title=""),
+        color=alt.Color("montant:Q", scale=alt.Scale(scheme="greens"), legend=alt.Legend(title="Dépense (€)")),
+        tooltip=["categorie", "qte", "montant"]
+    ).properties()
+    st.altair_chart(chart_top_categories, use_container_width=True)
+    
+    
+    
     st.markdown("---")
+    
+    
+    #------  Timeline des achats ----
+    
+    st.markdown(f"### 🕒 Timeline des achats")
+    
+    
+    # Trouver la catégorie avec le plus de quantité totale
+    top_categorie = (
+        df_filtré.groupby("categorie", as_index=False)
+        .agg({"qte": "sum"})
+        .sort_values("qte", ascending=False)
+        .head(1)["categorie"]
+        .values[0]
+        if not df_filtré.empty else None
+    )
+    options = df_filtré["categorie"].dropna().unique()
+    default_index = list(options).index(top_categorie) if top_categorie in options else 0
 
-    produit_cible = st.selectbox("Choix du produit", df_filtré["produit"].dropna().unique())
+    produit_cible = st.selectbox("Choix du produit", options, index=default_index)
 
-    st.markdown("---")
-#--------------
+
+    df_prod = df_filtré[df_filtré["categorie"] == produit_cible]
+
 
     
-    df_prod = df_filtré[df_filtré["produit"] == produit_cible]
-
     if df_prod.empty:
         st.info("Aucune donnée pour ce produit.")
     else:
-        st.markdown(f"### 🕒 Timeline des achats de : **{produit_cible}**")
+        # st.markdown(f"### 🕒 Timeline des achats de : **{produit_cible}**")
 
         # Ajouter une colonne factice pour aligner les points sur un axe Y plat
         df_prod["y_fake"] = 0
@@ -259,49 +336,167 @@ with tab2:
         st.plotly_chart(fig, use_container_width=True)
 
 
+# --- Onglet Produits ---
+with tab2:
+
+    st.subheader("🍩 Dépenses par catégorie")
+
+    # Liste des groupes
+    groupes_ordre = df_filtré["groupe"].dropna().unique().tolist()
+
+    # Mapping manuel des couleurs par groupe
+    mapping_couleurs = {
+        "légumes": "#2ca02c",
+        "fruits": "#ffa15a",
+        "graines et noix": "#5c4033",
+        "viande": "#c0392b",
+        "poisson": "#1f77b4",
+        "condiments": "#bc6c25",
+        "boisson": "#17becf",
+        "hygiene et entretien": "#e377c2",
+        "produits laitiers": "#f4d03f",
+        "céréales et féculents": "#e1ad01",
+        "oeufs": "#f5deb3",
+        "grinottage": "#8e44ad",
+        "autres": "#7f8c8d"
+    }
 
 
-    # --- DEBUG : Produits différents ---
-    st.subheader("🧪 Debug : Produits distincts")
+    # Si des groupes ne sont pas définis dans le mapping, les gérer par défaut
+    groupes_restants = [g for g in groupes_ordre if g not in mapping_couleurs]
+    couleurs_restantes = ['#FF6692', '#1F77B4']  # par ex. les couleurs restantes de Bold
+    mapping_couleurs.update(dict(zip(groupes_restants, couleurs_restantes)))
 
-    # Compter les occurrences, trier par ordre alphabétique
-    produits_counts = (
-        df_filtré["produit"]
-        .dropna()
-        .value_counts()
-        .rename_axis("produit")
-        .reset_index(name="occurrences")
-        .sort_values("produit")  # tri alphabétique
+
+
+    # Données pour le donut
+    dep_par_cat = (
+        df_filtré.groupby("groupe")["montant"]
+        .sum()
+        .reset_index()
+        .sort_values("montant", ascending=False)
+    )
+    fig_donut = px.pie(
+        dep_par_cat,
+        names="groupe",
+        values="montant",
+        hole=0.5,
+        color="groupe",
+        color_discrete_map=mapping_couleurs,
+    )
+    fig_donut.update_layout(
+        showlegend=True,
+        margin=dict(t=10, b=10, l=10, r=10),
+        height=350
+    )
+    st.plotly_chart(fig_donut, use_container_width=True)
+
+
+    st.subheader("📂 Dépenses par sous-catégorie")
+    fig_tree = px.treemap(
+        df_filtré,
+        path=["groupe", "categorie"],
+        values="montant",
+        color="groupe",
+        color_discrete_map=mapping_couleurs,
+    )
+    fig_tree.update_layout(margin=dict(t=10, l=10, r=10, b=10), height=500)
+    st.plotly_chart(fig_tree, use_container_width=True)
+
+
+
+
+
+    st.markdown("---")
+
+    st.subheader("🌿 Répartition des dépenses BIO / non BIO (en % tous les 4 mois)")
+
+    # Créer une période glissante de 4 mois
+    df_filtré["quadri_glissant"] = (
+        df_filtré["date"].dt.to_period("M")
+        .apply(lambda p: f"{p.year}-{(p.month - 1) // 4 * 4 + 1:02d}")
     )
 
-    # Affichage du tableau
-    st.write("Produits différents (ordre alphabétique avec nombre d'occurrences) :")
-    st.dataframe(produits_counts)
+    # Remplir les valeurs manquantes dans BIO si nécessaire
+    df_filtré["BIO"] = df_filtré["BIO"].fillna(False)
 
-    # Nombre total de produits uniques
-    st.write(f"Nombre total de produits différents : **{produits_counts.shape[0]}**")
-
-
-
-    # --- Export CSV des produits distincts ---
-    st.subheader("📥 Export CSV des produits distincts")
-
-    # Liste unique, triée
-    produits_uniques = (
-        df_filtré["produit"]
-        .dropna()
-        .drop_duplicates()
-        .sort_values()
-        .reset_index(drop=True)
+    # Agréger les montants par période et valeur de BIO
+    df_bio = (
+        df_filtré.groupby(["quadri_glissant", "BIO"])["montant"]
+        .sum()
+        .reset_index()
     )
 
-    # Conversion en CSV
-    csv_data = produits_uniques.to_frame(name="produit").to_csv(index=False).encode("utf-8")
+    # Calcul des pourcentages par période
+    totaux = df_bio.groupby("quadri_glissant")["montant"].transform("sum")
+    df_bio["pourcent"] = df_bio["montant"] / totaux * 100
 
-    # Bouton de téléchargement
-    st.download_button(
-        label="📄 Télécharger la liste des produits",
-        data=csv_data,
-        file_name="produits_distincts.csv",
-        mime="text/csv"
+    # Pivot pour tableau période x BIO
+    df_pivot = df_bio.pivot_table(
+        index="quadri_glissant",
+        columns="BIO",  # True / False
+        values="pourcent",
+        fill_value=0
+    ).reset_index()
+
+    # Définir l’ordre d’empilement : True (BIO) en bas
+    ordre_bio = [True, False]
+    ordre_bio = [col for col in ordre_bio if col in df_pivot.columns]
+
+    # Couleurs
+    couleurs_bio = {
+        True: "#4CAF50",   # vert BIO
+        False: "#B0B0B0"   # gris non BIO
+    }
+
+    # Tracer le graphique
+    fig = go.Figure()
+    for bio in ordre_bio:
+        fig.add_trace(go.Scatter(
+            x=df_pivot["quadri_glissant"],
+            y=df_pivot[bio],
+            name="BIO" if bio else "Non BIO",
+            stackgroup='one',
+            mode='none',
+            line_shape='spline',
+            fillcolor=couleurs_bio[bio]
+        ))
+
+    fig.update_layout(
+        yaxis=dict(title="Pourcentage", ticksuffix="%"),
+        xaxis_title="Période (4 mois)",
+        height=450,
+        showlegend=True,
+        margin=dict(t=30, b=40, l=10, r=10)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+
+
+
+
+
+
+# --- Onglet Inflation ---
+with tab3:
+    # --- Variations de prix ---
+    st.subheader("📈 Produits avec plus forte hausse de prix")
+
+    # On filtre les produits "au poids"
+    df_variation = df_filtré[
+        (df_filtré["poids"].isna()) &
+        (~df_filtré["groupe"].str.lower().isin(["légumes", "fruits", "céréales et féculents"]))
+    ]
+
+    variation_prix = df_variation.groupby("produit")["prix_unitaire"].agg(['min', 'max'])
+    variation_prix["variation_%"] = ((variation_prix["max"] - variation_prix["min"]) / variation_prix["min"]) * 100
+    variation_prix = variation_prix.sort_values("variation_%", ascending=False)
+    top_variations = variation_prix[variation_prix["variation_%"] > 0].head(10)
+
+    st.dataframe(
+        top_variations.style.format({
+            "min": "{:.2f} €", "max": "{:.2f} €", "variation_%": "{:.1f} %"
+        })
     )
