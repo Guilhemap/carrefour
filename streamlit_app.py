@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from plotly_calplot import calplot
 import plotly.graph_objects as go
+from babel.dates import format_datetime
 
 
 locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
@@ -217,7 +218,8 @@ with tab1:
     # --- Selon le jour de la semaine ---
     
     #traitement données
-    df_filtré["jour"] = df_filtré["date"].dt.day_name(locale='fr_FR').str.lower()
+    # df_filtré["jour"] = df_filtré["date"].dt.day_name(locale='fr_FR').str.lower()
+    df_filtré["jour"] = df_filtré["date"].apply(lambda d: format_datetime(d, "EEEE", locale="fr_FR").lower())
 
     tickets_uniques = df_filtré.drop_duplicates("id_ticket")
     jours_tickets = (
